@@ -6,7 +6,7 @@ from functools import reduce
 from itertools import groupby, islice
 from math import sqrt, log, log2, floor, ceil
 from sys import stderr
-from time import process_time as time
+from time import clock as time
 
 import numpy as np
 from scipy.fftpack import fft
@@ -742,7 +742,7 @@ all_tests = OrderedDict((
     ('frequency', 'Frequency (Monobit) Test'),
     ('block_frequency', 'Frequency Test within a Block'),
     ('runs', 'Runs Test'),
-    ('longest_run_of_ones', 'Tests for the Longest-Run-of-Ones in a Block'),
+    ('longest_run_of_ones', 'Test for the Longest-Run-of-Ones in a Block'),
     ('rank', 'Binary Matrix Rank Test'),
     ('discrete_fourier_transform', 'Discrete Fourier Transform (Spectral) Test'),
     ('non_overlapping_template_matching', 'Non-overlapping Template Matching Test'),
@@ -766,9 +766,10 @@ def run_all(generator, n_bits, continuous=False, print_log=False):
     # we need to pre-compute it and create a static generator
     if not continuous:
         ts = time()
-        sequence = [generator.random_byte() for _ in range((n_bits + 1024) // 8)]  # 1024 extra bits
-        print("(Sequence pre-computed in", nicer_time(time() - ts) + ')', flush=True)
+        sequence = generator.random_bytes((n_bits + 1024) // 8)  # 1024 extra bits
         generator = StaticSequenceGenerator(seq=sequence)
+        if print_log:
+            print("(Sequence pre-computed in", nicer_time(time() - ts) + ')', flush=True)
 
     for t_id, t_name in all_tests.items():
         if not continuous:

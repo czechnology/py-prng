@@ -1,22 +1,45 @@
+from time import process_time as time
+
+from generator.generator import StaticSequenceGenerator
 from randomness_test.basic_tests import frequency_test, poker_test, runs_test
+from utils.unit_tools import nicer_time
 
 
-def run_all(generator, seed=None):
+def run_all(generator, continuous=False, print_log=False):
+    """
+    Run all FIPS 140-1 tests.
+    """
+
     n = 20000
 
-    if seed:
-        generator.seed(seed)
+    # if we want all the tests to be applied to the *same* bit sequence,
+    # we need to pre-compute it and create a static generator
+    if not continuous:
+        ts = time()
+        sequence = generator.random_bytes((n + 1024) // 8)  # 1024 extra bits
+        generator = StaticSequenceGenerator(seq=sequence)
+        if print_log:
+            print("(Sequence pre-computed in", nicer_time(time() - ts) + ')', flush=True)
+
+    if not continuous:
+        # print("(Rewinding sequence before next test)")
+        generator.rewind()  # rewind
+
     misc = {}
     frequency_test(generator, n, misc=misc)
     t1 = 9654 < misc['n1'] < 10346
 
-    if seed:
-        generator.seed(seed)
+    if not continuous:
+        # print("(Rewinding sequence before next test)")
+        generator.rewind()  # rewind
+
     x3 = poker_test(generator, n, m=4)
     t2 = 1.03 < x3 < 57.4
 
-    if seed:
-        generator.seed(seed)
+    if not continuous:
+        # print("(Rewinding sequence before next test)")
+        generator.rewind()  # rewind
+
     misc = {}
     runs_test(generator, n, fips_style=True, misc=misc)
     b, g, max_run = misc['b'], misc['g'], misc['max_run']

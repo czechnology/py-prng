@@ -2,9 +2,9 @@ from math import log2, sqrt, ceil
 from sys import stderr
 
 from scipy.special import erfc
+from scipy.stats import norm
 
 from utils.bit_tools import concat_chunks
-from utils.stat_tools import standard_normal_distr_quantile
 
 
 def maurer_universal_test(generator, n_bits, l=None, q=None, k=None, sig_level=None, misc=None):
@@ -22,8 +22,6 @@ def maurer_universal_test(generator, n_bits, l=None, q=None, k=None, sig_level=N
     5. Xu = sum / K.
     6. Return(Xu).
     """
-
-    # TODO: cleanup - to match Menezes algorithm better again
 
     if not l:
         if n_bits >= 1059061760:
@@ -85,7 +83,7 @@ def maurer_universal_test(generator, n_bits, l=None, q=None, k=None, sig_level=N
     print("sum", sum_)
 
     xu = sum_ / k
-    exp_mean, exp_var = maurer_mean_var2(l, k, c_alg=C_ALG_MENEZES)
+    exp_mean, exp_var = maurer_mean_var2(l, k, c_alg=C_ALG_MAURER)
     zu = (xu - exp_mean) / sqrt(exp_var)
 
     erfc_arg = abs(xu - exp_mean) / sqrt(2) / sqrt(exp_var)
@@ -97,7 +95,7 @@ def maurer_universal_test(generator, n_bits, l=None, q=None, k=None, sig_level=N
     if sig_level is None:
         return xu
     else:
-        limit = -standard_normal_distr_quantile(sig_level / 2)
+        limit = -norm.ppf(sig_level / 2)
         if type(misc) is dict:
             misc.update(xu=xu, zu=zu, limit=limit, p_value=p_value)
         return -limit <= zu <= limit

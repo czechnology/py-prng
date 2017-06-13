@@ -116,7 +116,7 @@ class TestMBT(unittest.TestCase):
         generator = StaticSequenceGenerator(seq=sequence)
         n = 160
 
-        t = fips.run_all(generator, n)
+        t = fips.run_all(generator)
         # print(t1, t2, t3, t4)
         self.assertTupleEqual(t, (0, 0, 0, 1))
 
@@ -149,7 +149,7 @@ class TestMBT(unittest.TestCase):
 
             # FIPS 140-1
             generator.seed(0)
-            t = fips.run_all(generator, n)
+            t = fips.run_all(generator)
             self.assertTrue(all(t))
 
     def test_nist_examples(self):
@@ -164,7 +164,7 @@ class TestMBT(unittest.TestCase):
 
         generator.seed(0)
         misc = {}
-        x1 = basic.frequency_test(generator, n, misc=misc)
+        basic.frequency_test(generator, n, misc=misc)
         self.assertEqual(misc['n1'] - misc['n0'], -16)
         self.assertAlmostEqual(misc['p_value'], 0.109599, 6)
 
@@ -175,31 +175,31 @@ class TestMBT(unittest.TestCase):
         # Example #1: The binary expansion of pi
         with StaticFileGenerator(file=self.SEQ_FILE_PATT % 'nist/pi') as generator:
             misc = {}
-            pass1 = basic.frequency_test(generator, n, sig_level=sig_level, misc=misc)
+            basic.frequency_test(generator, n, sig_level=sig_level, misc=misc)
             self.assertAlmostEqual(misc['p_value'], 0.578211, 6)
 
         # Example #2: The binary expansion of e
         with StaticFileGenerator(file=self.SEQ_FILE_PATT % 'nist/e') as generator:
             misc = {}
-            pass1 = basic.frequency_test(generator, n, sig_level=sig_level, misc=misc)
+            basic.frequency_test(generator, n, sig_level=sig_level, misc=misc)
             self.assertAlmostEqual(misc['p_value'], 0.953749, 6)
 
         # Example #3: A G-SHA-1 binary sequence
         with StaticFileGenerator(file=self.SEQ_FILE_PATT % 'nist/sha1') as generator:
             misc = {}
-            pass1 = basic.frequency_test(generator, n, sig_level=sig_level, misc=misc)
+            basic.frequency_test(generator, n, sig_level=sig_level, misc=misc)
             self.assertAlmostEqual(misc['p_value'], 0.604458, 6)
 
         # Example #4: The binary expansion of sqrt(2)
         with StaticFileGenerator(file=self.SEQ_FILE_PATT % 'nist/sqrt2') as generator:
             misc = {}
-            pass1 = basic.frequency_test(generator, n, sig_level=sig_level, misc=misc)
+            basic.frequency_test(generator, n, sig_level=sig_level, misc=misc)
             self.assertAlmostEqual(misc['p_value'], 0.811881, 6)
 
         # Example #5: The binary expansion of sqrt(3)
         with StaticFileGenerator(file=self.SEQ_FILE_PATT % 'nist/sqrt3') as generator:
             misc = {}
-            pass1 = basic.frequency_test(generator, n, sig_level=sig_level, misc=misc)
+            basic.frequency_test(generator, n, sig_level=sig_level, misc=misc)
             self.assertAlmostEqual(misc['p_value'], 0.610051, 6)
 
 

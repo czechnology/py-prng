@@ -2,27 +2,31 @@ from functools import reduce
 from operator import xor
 
 from generator.generator import BitGenerator
-from utils.bit_tools import least_significant_bit as lsb
 
 
 class LinearFeedbackShiftRegister(BitGenerator):
-    # TODO
-    """ """
+    """
+    Linear feedback shift register to generate random bits, depending on the given tap sequence
+    and initial register state (seed).
+    """
 
     NAME = "Linear Feedback Shift Register"
 
     def info(self):
         return [self.NAME,
                 "parameters: length=%d, taps=%s" % (self.length, str(self.taps)),
-                "seed (register state): " + str(self.register)]
+                "seed (register state): " + str(self.state())]
+
+    def state(self):
+        return self.register
 
     def __init__(self, length, taps, seed=0):
         """
         """
 
         self.length = length
-        self.register = seed
         self.taps = taps
+        self.register = seed
 
         super().__init__(seed)
 
@@ -34,11 +38,20 @@ class LinearFeedbackShiftRegister(BitGenerator):
         self.register = a
 
     def random_bit(self):
-        # tap on the bits
-        new_bit = lsb(reduce(xor, [self.register >> (p - 1) for p in self.taps]))
+        last_bit = 1 & self.register
 
-        last_bit = lsb(self.register)
+        # tap on the bits
+        new_bit = 1 & reduce(xor, [self.register >> (p - 1) for p in self.taps])
+
         self.register = (new_bit << (self.length - 1)) | (self.register >> 1)
-        # print('{1:0{0}b}'.format(self.length, self.register))
 
         return last_bit
+
+    def getstate(self):
+        return self.VERSION, self.length, self.taps, self.register
+
+    def setstate(self, state):
+        self.VERSION = state[0]
+        self.length = state[1]
+        self.taps = state[2]
+        self.register = state[3]

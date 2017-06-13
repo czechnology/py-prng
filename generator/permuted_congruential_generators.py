@@ -18,13 +18,16 @@ class PermutedCongruentialGenerator(NumberGenerator):
     MASK32 = 0xffffffff
     MASK64 = 0xffffffffffffffff
 
+    def state(self):
+        return self.s
+
     def info(self):
         return [self.NAME,
                 "parameter: seq_id=" + str(self.seq_id),
-                "seed (state): " + str(self.state)]
+                "seed (state): " + str(self.state())]
 
     def __init__(self, init_seq, seed=None):
-        self.state = None
+        self.s = None
         self.seq_id = None
         self.inc = None
         self._set_seq(init_seq)
@@ -42,9 +45,9 @@ class PermutedCongruentialGenerator(NumberGenerator):
 
         super().seed(a, version)
 
-        self.state = 0
+        self.s = 0
         self.random_number()
-        self.state += a & 0xffffffffffffffff
+        self.s += a & self.MASK64
         self.random_number()
 
     def max_value(self):
@@ -52,19 +55,19 @@ class PermutedCongruentialGenerator(NumberGenerator):
 
     def random_number(self):
 
-        if self.state is None:
+        if self.s is None:
             raise Exception("Generator must be initialized first")
 
-        old_state = self.state
-        self.state = (old_state * 6364136223846793005 + self.inc) & 0xffffffffffffffff
-        xor_shifted = (((old_state >> 18) ^ old_state) >> 27) & 0xffffffff
+        old_state = self.s
+        self.s = (old_state * 6364136223846793005 + self.inc) & self.MASK64
+        xor_shifted = (((old_state >> 18) ^ old_state) >> 27) & self.MASK32
         rot = old_state >> 59
-        return ((xor_shifted >> rot) | (xor_shifted << ((-rot) & 31))) & 0xffffffff
+        return ((xor_shifted >> rot) | (xor_shifted << ((-rot) & 31))) & self.MASK32
 
     def getstate(self):
-        return self.VERSION, self.seq_id, self.state
+        return self.VERSION, self.seq_id, self.s
 
     def setstate(self, state):
         self.VERSION = state[0]
         self._set_seq(state[1])
-        self.state = state[2]
+        self.s = state[2]

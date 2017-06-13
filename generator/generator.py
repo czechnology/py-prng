@@ -7,6 +7,12 @@ from utils.math_tools import is_power2, lcm
 
 
 class RandomGenerator(Random, metaclass=abc.ABCMeta):
+    """
+    General superclass of all our implemented generators. Provides methods to generate random bits
+    and bytes and also implements the standard Python's random.Random class for simple conversion
+    to other numerical formats.
+    """
+
     def __init__(self, x):
         super().__init__(x)
         self.byte_buffer = []  # FIFO queue of bytes
@@ -25,7 +31,11 @@ class RandomGenerator(Random, metaclass=abc.ABCMeta):
         raise NotImplementedError('Generators must override method info() to use this base class')
 
     @abc.abstractmethod
-    def random_bytes(self):
+    def state(self):
+        raise NotImplementedError('Generators must override method state() to use this base class')
+
+    @abc.abstractmethod
+    def random_bytes(self, min_bytes=1):
         raise NotImplementedError('Generators must define random_bytes to use this base class')
 
     def random_byte(self):
@@ -62,24 +72,58 @@ class RandomGenerator(Random, metaclass=abc.ABCMeta):
 
         return z / (2 ** 64)
 
+    def random_bytes_gen(self, n_bytes):
+        chunk_size = 1024  # bytes
+        generated_count = 0
+        while generated_count < n_bytes:
+            generated_chunk = self.random_bytes(chunk_size)
+            for byte in generated_chunk:
+                if generated_count < n_bytes:
+                    generated_count += 1
+                    yield byte
+
+    def random_bits_gen(self, n_bits):
+        chunk_size = 1024  # bytes
+        generated_count = 0
+        while generated_count < n_bits:
+            generated_chunk = self.random_bytes(chunk_size)
+            for byte in generated_chunk:  # iterate over bytes in chunk
+                for i in reversed(range(8)):  # iterate over bits in byte
+                    if generated_count < n_bits:
+                        generated_count += 1
+                        yield (byte >> i) & 1
+
     def __str__(self) -> str:
         info = self.info()
         return info[0] + ' (' + '; '.join(info[1:]) + ')'
 
 
 class BitGenerator(RandomGenerator, metaclass=abc.ABCMeta):
+    """
+    Random bit generators which produce only single bits or sequences of bits in one iteration.
+    """
+
     @abc.abstractmethod
     def random_bit(self):
         raise NotImplementedError('Generators must define random_bit to use this base class')
 
-    def random_bytes(self):
-        return [bits_to_byte([self.random_bit() for _ in range(8)])]
+    def random_bytes(self, min_bytes=1):
+        generated_bytes = []
+        while len(generated_bytes) < min_bytes:
+            byte = bits_to_byte([self.random_bit() for _ in range(8)])
+            generated_bytes.append(byte)
+        return generated_bytes
 
     def seed(self, a=None, version=2):
         super().seed(a, version)
 
 
 class NumberGenerator(RandomGenerator, metaclass=abc.ABCMeta):
+    """
+    Random number generators which produce an integer number between 0 and max_value() in each
+    iteration.
+    """
+
     def __init__(self, x=None):
         super().__init__(x)
 
@@ -108,28 +152,41 @@ class NumberGenerator(RandomGenerator, metaclass=abc.ABCMeta):
         n = self.random_number() / (self.max_value() + 1)
         return n
 
-    def random_bytes(self):
+    def random_bytes(self, min_bytes=1):
         max_bits, max_bits_value = self.max_bits, self.max_bits_value
 
-        generated_bits = 0
-        for i in range(self.rounds):
-            number = self.random_number()
-            while number > max_bits_value:
+        generated_bytes = []
+        while len(generated_bytes) < min_bytes:
+            generated_bits = 0
+            for i in range(self.rounds):
                 number = self.random_number()
+                while number > max_bits_value:
+                    number = self.random_number()
 
-            generated_bits = (generated_bits << max_bits) | number
+                generated_bits = (generated_bits << max_bits) | number
 
-        return generated_bits.to_bytes(self.rounds * max_bits // 8, byteorder='big')
+            generated_bytes += generated_bits.to_bytes(self.rounds * max_bits // 8, byteorder='big')
+
+        return generated_bytes
 
 
 class StaticSequenceGenerator(RandomGenerator):
+    """
+    A dummy generator producing bytes from a given static byte sequence. Once the end of the
+    sequence is reached, the generator will rewind and start producing bytes from the start of the
+    sequence again. This class is used mostly for testing.
+    """
+
     NAME = "Generator repeating a given static sequence"
 
     def info(self):
         return [self.NAME,
                 "sequence(%d): %s%s"
                 % (self.n, str(self.sequence[:8]), "(first 8 bytes)" if self.n > 8 else ""),
-                "seed (position): " + str(self.pos)]
+                "seed (position): " + str(self.state())]
+
+    def state(self):
+        return self.pos
 
     def __init__(self, seq, pos0=0):
 
@@ -151,10 +208,15 @@ class StaticSequenceGenerator(RandomGenerator):
     def rewind(self):
         self.seed(0)  # set position to the beginning of the sequence
 
-    def random_bytes(self):
-        byte = self.seq[self.pos]
-        self.pos = (self.pos + 1) % self.n
-        return [byte]
+    def random_bytes(self, min_bytes=1):
+        generated_bytes = []
+        while len(generated_bytes) < min_bytes:
+            # number of bytes to take from sequence
+            n_bytes = min(min_bytes - len(generated_bytes), self.n - self.pos)
+            generated_bytes += self.seq[self.pos:self.pos + n_bytes]
+            self.pos = (self.pos + n_bytes) % self.n
+
+        return generated_bytes
 
     def random(self):
         z = 0
@@ -175,12 +237,21 @@ class StaticSequenceGenerator(RandomGenerator):
 
 
 class StaticFileGenerator(RandomGenerator):
+    """
+    A dummy generator producing bytes from a given static binary file. Once the end of the file
+    is reached, the generator will rewind and start producing bytes from the start of the file
+    again. This class is used mostly for testing.
+    """
+
     NAME = "Generator repeating sequence from a given file"
 
     def info(self):
         return [self.NAME,
                 "file: %s" % self.file,
-                "seed (position): " + str(self.pos)]
+                "seed (position): " + str(self.state())]
+
+    def state(self):
+        return self.file_handle.tell() if self.file_handle else None
 
     def __init__(self, file, pos0=0):
         if not isfile(file):
@@ -190,10 +261,12 @@ class StaticFileGenerator(RandomGenerator):
         self.file_handle = None
 
         super().__init__(pos0)
+        self.__enter__()
 
     # allow use of `with ... as` statement (see PEP 343)
     def __enter__(self):
-        self.file_handle = open(self.file, 'rb')
+        if not self.file_handle:
+            self.file_handle = open(self.file, 'rb')
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -209,14 +282,19 @@ class StaticFileGenerator(RandomGenerator):
         if self.file_handle:
             self.file_handle.seek(a)
 
-    def random_bytes(self):
-        bytes_ = self.file_handle.read(16)
-        if not bytes_:
-            print("Rewinding file")
-            self.file_handle.seek(0)
-            bytes_ = self.file_handle.read(16)
+    def random_bytes(self, min_bytes=1):
+        generated_bytes = []
+        while len(generated_bytes) < min_bytes:
+            # number of bytes to take from file
+            n_bytes = min(min_bytes - len(generated_bytes), 1024)
+            read_bytes = self.file_handle.read(n_bytes)
+            if read_bytes:
+                generated_bytes += read_bytes
+            else:
+                print("Rewinding file")
+                self.file_handle.seek(0)
 
-        return bytes_
+        return generated_bytes
 
     def random(self):
         z = 0

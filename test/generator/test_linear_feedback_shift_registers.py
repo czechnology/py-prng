@@ -3,7 +3,7 @@ import unittest
 from generator.linear_feedback_shift_registers import LinearFeedbackShiftRegister
 
 
-class TestGFSR(unittest.TestCase):
+class TestLinearFeedbackShiftRegisters(unittest.TestCase):
     SEQUENCES_PATH = "sequences/generalised_feedback_shift_registers"
 
     def test_lfsr_schneier_16_2(self):

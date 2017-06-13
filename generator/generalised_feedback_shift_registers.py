@@ -11,8 +11,11 @@ from utils.bit_tools import least_significant_bit as lsb
 
 
 class MersenneTwister(NumberGenerator, metaclass=abc.ABCMeta):
-    # TODO: docs
-    """ """
+    """General implementation of the Mersenne Twister algorithm. This abstract class is subclassed
+    by the 32-bit and 64-bit classes with appropriate constants."""
+
+    def state(self):
+        return self.mt[0]
 
     def __init__(self, seed=None):
         """
@@ -88,7 +91,7 @@ class MersenneTwister32(MersenneTwister):
 
     def info(self):
         return [self.NAME,
-                "seed (state): MT[0]=" + str(self.mt[0])]
+                "seed (state): MT[0]=" + str(self.state())]
 
     def setup_parameters(self):
         self.w, self.n, self.m, self.r = (32, 624, 397, 31)
@@ -105,7 +108,7 @@ class MersenneTwister64(MersenneTwister):
 
     def info(self):
         return [self.NAME,
-                "seed (state): MT[0]=" + str(self.mt[0])]
+                "seed (state): MT[0]=" + str(self.state())]
 
     def setup_parameters(self):
         self.w, self.n, self.m, self.r = (64, 312, 156, 31)

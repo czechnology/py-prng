@@ -1,13 +1,16 @@
 from collections import deque
 from math import log2, sqrt
+from time import process_time as time
 
 from scipy.special import erfc
+from scipy.stats import chi2, norm
 
+from generator.generator import StaticSequenceGenerator
 from utils.bit_tools import concat_chunks
-from utils.stat_tools import standard_normal_distr_quantile, chi_squared_distr_quantile
+from utils.unit_tools import nicer_time
 
 
-def frequency_test(generator, n_bits, n1=None, sig_level=None, misc=None):
+def frequency_test(generator, n_bits, sig_level=None, misc=None, n1=None):
     if n1 is None:
         n0, n1 = _calculate_n0_n1(generator, n_bits)
     else:
@@ -22,7 +25,7 @@ def frequency_test(generator, n_bits, n1=None, sig_level=None, misc=None):
     if sig_level is None:
         return x1
     else:
-        limit = chi_squared_distr_quantile(1 - sig_level, dof=1)
+        limit = chi2.ppf(1 - sig_level, 1)
         if type(misc) is dict:
             misc.update(x=x1, limit=limit)
         return x1 <= limit
@@ -59,7 +62,7 @@ def serial_test(generator, n_bits, n1=None, sig_level=None, misc=None):
     if sig_level is None:
         return x2
     else:
-        limit = chi_squared_distr_quantile(1 - sig_level, dof=2)
+        limit = chi2.ppf(1 - sig_level, 2)
         if type(misc) is dict:
             misc.update(x=x2, limit=limit)
         return x2 <= limit
@@ -92,7 +95,7 @@ def poker_test(generator, n_bits, m=None, sig_level=None, misc=None):
     if sig_level is None:
         return x3
     else:
-        limit = chi_squared_distr_quantile(1 - sig_level, dof=(2 ** m) - 1)
+        limit = chi2.ppf(1 - sig_level, (2 ** m) - 1)
         if type(misc) is dict:
             misc.update(x=x3, limit=limit)
         return x3 <= limit
@@ -150,7 +153,7 @@ def runs_test(generator, n_bits, sig_level=None, fips_style=False, misc=None):
     if sig_level is None:
         return x4
     else:
-        limit = chi_squared_distr_quantile(1 - sig_level, dof=2 * (k - 1))
+        limit = chi2.ppf(1 - sig_level, 2 * (k - 1))
         if type(misc) is dict:
             misc.update(x=x4, limit=limit)
         return x4 <= limit
@@ -180,7 +183,41 @@ def autocorrelation_test(generator, n_bits, d, sig_level=None, misc=None):
     if sig_level is None:
         return x5
     else:
-        limit = -standard_normal_distr_quantile(sig_level / 2)
+        limit = -norm.ppf(sig_level / 2)
         if type(misc) is dict:
             misc.update(x=x5, limit=limit)
         return -limit <= x5 <= limit
+
+
+def run_all(generator, n_bits, sig_level, continuous=False, print_log=False):
+    # if we want all the tests to be applied to the *same* bit sequence,
+    # we need to pre-compute it and create a static generator
+    if not continuous:
+        ts = time()
+        sequence = generator.random_bytes((n_bits // 8) + 16)
+        print(sequence)
+        generator = StaticSequenceGenerator(seq=sequence)
+        if print_log:
+            print("(Sequence pre-computed in", nicer_time(time() - ts) + ')', flush=True)
+
+    if not continuous:
+        generator.rewind()  # rewind
+    tf = frequency_test(generator, n_bits, sig_level=sig_level)
+
+    if not continuous:
+        generator.rewind()  # rewind
+    ts = serial_test(generator, n_bits, sig_level=sig_level)
+
+    if not continuous:
+        generator.rewind()  # rewind
+    tp = poker_test(generator, n_bits, sig_level=sig_level)
+
+    if not continuous:
+        generator.rewind()  # rewind
+    tr = runs_test(generator, n_bits, sig_level=sig_level)
+
+    if not continuous:
+        generator.rewind()  # rewind
+    tac = autocorrelation_test(generator, n_bits, d=100, sig_level=sig_level)
+
+    return tf, ts, tp, tr, tac

@@ -1,15 +1,10 @@
 from math import ceil
-from functools import reduce
-import operator
 
 
 def least_significant_bit(number, count=1):
     mask = (1 << count) - 1
     return int(number & mask)
 
-
-# def bit_at(number, position=1):
-#     return least_significant_bit(number >> )
 
 def byte_xor(ba1, ba2):
     """Perform an XOR operation on two byte arrays"""
@@ -44,7 +39,8 @@ def bits_to_byte(bits):
     byte = 0
     for b in bits:
         if b & 1 != b:
-            raise ValueError("The list of bits must consist only of 0's and 1's")
+            raise ValueError("The list of bits must consist only of 0's and 1's (was %s)"
+                             % str(bits))
         byte = (byte << 1) | b
     return int(byte)
 

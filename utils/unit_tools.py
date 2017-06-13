@@ -2,6 +2,11 @@ from math import log10
 
 
 def nicer_time(t, unit='s'):
+    """Print time in a nice form"""
+
+    if t == 0:
+        return "0s"
+
     t = float(t)
     if unit == 'us':
         seconds = t / 1000000

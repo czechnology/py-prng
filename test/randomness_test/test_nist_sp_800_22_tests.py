@@ -859,6 +859,25 @@ class TestMBT(unittest.TestCase):
         # 5: The binary expansion of sqrt(3)
         self._assert_p_value('sqrt3', 10 ** 6, 'random_excursions_variant', result_index=8)
 
+    def test_run_all_pi(self):
+        """Test if the run_all works as expected. Thorough inspection is not needed as the
+        individual tests are verified with the other unit tests but we want to make sure that it
+        properly works with the generator and bits. That's why for simplicity we check only some of
+        the P-values returned by the function."""
+        with StaticFileGenerator(file=self.SEQ_FILE_PATT % 'pi') as generator:
+            n = 10 ** 6
+            expected_values_pi = dict([(k, r['pi']) for k, r in self.TV.items()])
+
+            # skip tests that require special handling or custom parameters
+            skip_tests = ['block_frequency', 'overlapping_template_matching', 'linear_complexity',
+                          'random_excursions', 'random_excursions_variant', 'serial']
+
+            results = nist.run_all(generator, n)
+
+            for p_val, t_id, t_name in results:
+                if t_id not in skip_tests:
+                    self.assertAlmostEqual(p_val, expected_values_pi[t_id], 6)
+
     def _assert_p_value(self, seq_id: str, n, test, expected_p_value=None, test_params=None,
                         result_index=0, precision=6):
         if not expected_p_value:

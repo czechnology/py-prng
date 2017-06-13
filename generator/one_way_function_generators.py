@@ -36,7 +36,10 @@ class AnsiX917Generator(NumberGenerator):
     def info(self):
         return [self.NAME,
                 "parameters: key=%s, d=%s" % (self.key, str(self.d)),
-                "seed (state): " + str(self.s)]
+                "seed (state): " + str(self.state())]
+
+    def state(self):
+        return self.s
 
     def __init__(self, seed=None, key=None, t=None):
         self.s = seed  # state
@@ -47,8 +50,8 @@ class AnsiX917Generator(NumberGenerator):
         # date/time to as fine a resolution as is available.
         if t is None:
             t = int(time.time() * (2 ** 31))
-        d = t.to_bytes(8, byteorder='big')
-        self.i = self.tdea(d)
+        self.d = t.to_bytes(8, byteorder='big')
+        self.i = self.tdea(self.d)
 
         super().__init__(seed)
 
@@ -67,7 +70,7 @@ class AnsiX917Generator(NumberGenerator):
 
     def random_number(self, m=None):
         """Generate pseudorandom number as per [Men96]:
-        
+
         2.  For i from 1 to m do the following:
         2.1     x[i] = Ek(I xor s).
         2.2     s    = Ek(x[i] xor I).
@@ -91,6 +94,9 @@ class Fips186Generator(NumberGenerator, metaclass=abc.ABCMeta):
     OWF_SHA1 = 1
     OWF_DES = 2
 
+    def state(self):
+        return self.s
+
     def __init__(self, g=OWF_SHA1, q=None, seed=None, b=160):
         self.s = seed  # state
         self.b = b  # exponent
@@ -108,7 +114,7 @@ class Fips186Generator(NumberGenerator, metaclass=abc.ABCMeta):
 
         self._verify_params(g)
 
-        super().__init__(None)
+        super().__init__(seed)
 
     def _gen_param_q(self):
         # use builtin RNG
@@ -140,9 +146,8 @@ class Fips186Generator(NumberGenerator, metaclass=abc.ABCMeta):
 
     @classmethod
     def _one_way_sha1(cls, t, c, b):
-
         """Special one-way function based on SHA-1 for use in FIPS 186 PRNG as per [Men96]:
-        
+
         5.15 Algorithm FIPS 186 one-way function using SHA-1
         INPUT: a 160-bit string t and a b-bit string c, 160 <= b <= 512.
         OUTPUT: a 160-bit string denoted G(t,c).
@@ -152,8 +157,6 @@ class Fips186Generator(NumberGenerator, metaclass=abc.ABCMeta):
         4. Execute step 4 of SHA-1 (Algorithm 9.53). (This alters the H[i]'s.)
         5. The output is the concatenation: G(t,c) = H1||H2||H3||H4||H5.
         """
-
-        # print(bin(t))
 
         # 1. Break up t into five 32-bit blocks: t = H1||H2||H3||H4||H5.
         h = split_chunks(t, 32, pad=5)
@@ -239,7 +242,7 @@ class Fips186Generator(NumberGenerator, metaclass=abc.ABCMeta):
         return h
 
     @classmethod
-    def _one_way_des(cls, t, c):
+    def _one_way_des(cls, t, c, b=None):  # unused parameter b on purpose to have same signature
         """Special one-way function based on DES for use in FIPS 186 PRNG as per [Men96]:
 
         5.16 Algorithm FIPS 186 one-way function using DES
@@ -311,7 +314,7 @@ class Fips186GeneratorPk(Fips186Generator):
         g = 'SHA1' if (self.g == self._one_way_sha1) else 'DES'
         return [self.NAME,
                 "parameters: b=%d, q=%d, g=%s" % (self.b, self.q, g),
-                "seed (state): " + str(self.s)]
+                "seed (state): " + str(self.state())]
 
     def random_number(self):
         # 3.    Define the 160-bit string t = 67452301 efcdab89 98badcfe 10325476 c3d2e1f0 (hex).
@@ -340,7 +343,7 @@ class Fips186GeneratorMsg(Fips186Generator):
         g = 'SHA1' if (self.g == self._one_way_sha1) else 'DES'
         return [self.NAME,
                 "parameters: b=%d, q=%d, g=%s" % (self.b, self.q, g),
-                "seed (state): " + str(self.s)]
+                "seed (state): " + str(self.state())]
 
     def random_number(self):
         # 3.    Define the 160-bit string t = efcdab89 98badcfe 10325476 c3d2e1f0 67452301 (hex).

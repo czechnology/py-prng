@@ -1,5 +1,5 @@
 from math import gcd
-from random import SystemRandom as Random
+from random import SystemRandom
 
 from generator.generator import BitGenerator
 from utils.bit_tools import least_significant_bit as lsb
@@ -20,7 +20,10 @@ class RsaGenerator(BitGenerator):
     def info(self):
         return [self.NAME,
                 "parameters: p=%d, q=%d, n=%d, e=%d" % (self.p, self.q, self.n, self.e),
-                "seed (state): " + str(self.x)]
+                "seed (state): " + str(self.state())]
+
+    def state(self):
+        return self.x
 
     def __init__(self, pqe=None, seed=None):
         if pqe is not None:
@@ -38,7 +41,7 @@ class RsaGenerator(BitGenerator):
 
     def _gen_params(self, bits):
         # use builtin RNG
-        rand = Random()
+        rand = SystemRandom()
 
         self.p = rand.getrandbits(bits)
         while not is_prime(self.p):
@@ -59,7 +62,7 @@ class RsaGenerator(BitGenerator):
 
     def _gen_param_e(self):
         # use builtin RNG
-        rand = Random()
+        rand = SystemRandom()
 
         phi = (self.p - 1) * (self.q - 1)
         self.e = rand.randint(2, phi - 1)
@@ -137,7 +140,7 @@ class MicaliSchnorrGenerator(RsaGenerator, BitGenerator):
 
     def _gen_param_e(self):
         # use builtin RNG
-        rand = Random()
+        rand = SystemRandom()
         n_bits = self.n.bit_length()
 
         phi = (self.p - 1) * (self.q - 1)
@@ -148,7 +151,7 @@ class MicaliSchnorrGenerator(RsaGenerator, BitGenerator):
 
     def seed(self, a=None, version=2):
         """Initialize the internal state of the generator."""
-        if self.r and a.bit_length() != self.r:
+        if self.r and a.bit_length() > self.r:
             raise ValueError("Seed value must be r=" + str(self.r) + " bits long")
         super().seed(a, version)
         self.x = a
@@ -195,7 +198,10 @@ class BlumBlumShubGenerator(BitGenerator):
     def info(self):
         return [self.NAME,
                 "parameters: p=%d, q=%d, n=%d" % (self.p, self.q, self.n),
-                "seed (state): " + str(self.x)]
+                "seed (state): " + str(self.state())]
+
+    def state(self):
+        return self.x
 
     def __init__(self, pq=None, seed=None):
         if pq is not None:
@@ -210,15 +216,15 @@ class BlumBlumShubGenerator(BitGenerator):
         self.x = None
 
         if not seed:
-            seed = Random().randrange(1, self.n)
+            seed = SystemRandom().randrange(1, self.n)
             while gcd(seed, self.n) != 1:
-                seed = Random().randrange(1, self.n)
+                seed = SystemRandom().randrange(1, self.n)
 
         super().__init__(seed)
 
     def _gen_params(self, bits):
         # use builtin RNG
-        rand = Random()
+        rand = SystemRandom()
 
         self.p = rand.getrandbits(bits)
         while not (is_prime(self.p) and self.p % 4 == 3):

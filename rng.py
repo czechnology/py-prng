@@ -5,8 +5,8 @@ import sys
 from argparse import ArgumentParser
 from os import linesep
 from random import SystemRandom
-from signal import signal, SIGPIPE, SIG_DFL
-from time import process_time as time
+# from signal import signal, SIG_DFL  # , SIGPIPE
+from time import clock as time
 
 from generators import available_generators, create
 from utils.console_tools import query_yes_no_abort
@@ -53,32 +53,32 @@ def main():
                                     "Specified file " + args.file + " exists. Overwrite?"):
                 print('Aborting')
                 sys.exit(0)
-            out = os.open(args.file, flags=os.O_WRONLY | os.O_BINARY | os.O_CREAT)
+            out = open(args.file, mode='wb', buffering=512*1024)
         else:
-            out = sys.stdout.fileno()
+            out = sys.stdout
 
     time_start = time()
     if args.binary:
-        # def gen_byte
         if args.timer:
             list(map(lambda j: (generator.random_byte()), range(count)))
         else:
             remaining = count
             while remaining > 0:
-                generated_bytes = generator.random_bytes()
-                os.write(out, bytes(generated_bytes))
+                generated_bytes = generator.random_bytes(min(remaining, 1024 * 1024))
+                out.write(bytes(generated_bytes)[:min(remaining, len(generated_bytes))])
                 remaining -= len(generated_bytes)
+                print("Progress:", (count-remaining)/count*100, "%", flush=True)
 
     else:  # not args.binary
         if hasattr(generator, 'random_number'):
             random_numbers = map(lambda j: (generator.random_number()), range(count))
         else:
-            random_numbers = map(lambda j: (generator.randrange(0,2<<32)), range(count))
+            random_numbers = map(lambda j: (generator.randrange(0, 2 << 32)), range(count))
 
         if args.timer:
             list(random_numbers)
         else:
-            os.write(out, bytes(linesep.join(map(str, random_numbers)), 'ascii'))
+            out.write(linesep.join(map(str, random_numbers)))
 
     if args.file or args.timer:
         time_elapsed = time() - time_start
@@ -93,5 +93,5 @@ def print_progress(perc):
 
 
 if __name__ == '__main__':
-    signal(SIGPIPE, SIG_DFL)
+    # signal(SIGPIPE, SIG_DFL)
     main()

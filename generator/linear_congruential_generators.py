@@ -21,7 +21,10 @@ class LinearCongruentialGenerator(NumberGenerator):
     def info(self):
         return [self.NAME,
                 "parameters: m=%d, a=%d, c=%d" % (self.m, self.a, self.c),
-                "seed (state): " + str(self.x)]
+                "seed (state): " + str(self.state())]
+
+    def state(self):
+        return self.x
 
     def __init__(self, m, a, c, seed=None):
         """Create the generator with specified constants.
@@ -58,6 +61,9 @@ class LinearCongruentialGenerator(NumberGenerator):
 
 
 class JavaLinearCongruentialGenerator(LinearCongruentialGenerator):
+    """
+    LCG that is used in the standard Java's class java.util.Random.
+    """
     M = 2 ** 48
     A = 25214903917
     C = 11
@@ -67,6 +73,9 @@ class JavaLinearCongruentialGenerator(LinearCongruentialGenerator):
 
 
 class RanduLinearCongruentialGenerator(LinearCongruentialGenerator):
+    """
+    LCG that was used in the RANDU generator.
+    """
     M = 2 ** 31
     A = 65539
     C = 0
